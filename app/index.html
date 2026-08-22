@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KaamAI — Build your own AI, don't just search with it</title>
+<meta name="description" content="Build a real AI assistant for your daily grunt work, guided, in one sitting. Free tool, no code.">
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" role="main" aria-live="polite"></div>
+
+  <!-- offline banner -->
+  <div id="offline-banner" class="offline-banner" hidden>You're offline. Your progress is saved on this device.</div>
+
+  <script src="config.js"></script>
+  <script src="vendor/supabase.min.js"></script>
+  <script src="sync.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

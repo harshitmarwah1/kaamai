@@ -4,22 +4,270 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>KaamAI — Build your own AI, don't just search with it</title>
-<meta name="description" content="Build a real AI assistant for your daily grunt work, guided, in one sitting. Free tool, no code.">
+<meta name="description" content="KaamAI walks you through building a real AI assistant for your daily work — guided, in one sitting. Free, no code.">
 <meta name="theme-color" content="#0f766e">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="app/icons/icon-192.png">
+<link rel="apple-touch-icon" href="app/icons/icon-192.png">
+<style>
+  @font-face { font-family: "Baloo 2"; src: url("app/fonts/baloo2-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+  @font-face { font-family: "Baloo 2"; src: url("app/fonts/baloo2-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  @font-face { font-family: "Baloo 2"; src: url("app/fonts/baloo2-800.woff2") format("woff2"); font-weight: 800; font-display: swap; }
+  @font-face { font-family: "Mulish"; src: url("app/fonts/mulish-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Mulish"; src: url("app/fonts/mulish-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+  @font-face { font-family: "Mulish"; src: url("app/fonts/mulish-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
+  :root {
+    --teal: #0f766e; --teal-dark: #0a5850; --teal-soft: #e6f3f1;
+    --amber: #f59e0b; --amber-dark: #b45309; --amber-ink: #3d2c06; --amber-soft: #fef3e2;
+    --ink: #1c1b19; --ink2: #57534e; --ink3: #8a827a;
+    --bg: #f7f5f1; --card: #ffffff; --line: #ece7e0;
+    --display: "Baloo 2", system-ui, sans-serif;
+    --body: "Mulish", system-ui, -apple-system, sans-serif;
+    --radius: 18px; --shadow: 0 14px 34px -20px rgba(15,118,110,.32);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 800; line-height: 1.12; margin: 0; letter-spacing: -.01em; }
+  p { margin: 0; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--display); font-weight: 700; font-size: 16px; border: 0; border-radius: 14px; padding: 14px 22px; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+  .btn:active { transform: translateY(1px); }
+  .btn-amber { background: var(--amber); color: var(--amber-ink); box-shadow: 0 10px 22px -12px rgba(245,158,11,.7); }
+  .btn-amber:hover { box-shadow: 0 14px 26px -12px rgba(245,158,11,.8); }
+  .btn-teal { background: var(--teal); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--teal-dark); padding: 14px 12px; }
+  .btn-white { background: #fff; color: var(--teal-dark); }
+  .btn svg { width: 18px; height: 18px; }
+
+  /* header */
+  header { position: sticky; top: 0; z-index: 40; background: rgba(247,245,241,.86); backdrop-filter: saturate(1.4) blur(8px); border-bottom: 1px solid var(--line); }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-family: var(--display); font-weight: 800; font-size: 20px; }
+  .brand .mark { width: 30px; height: 30px; border-radius: 9px; background: var(--teal); display: grid; place-items: center; }
+  .nav .btn { padding: 9px 16px; font-size: 14.5px; }
+
+  /* hero */
+  .hero { padding: 46px 0 26px; }
+  .hero-grid { display: grid; grid-template-columns: 1fr; gap: 34px; align-items: center; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-size: 13px; color: var(--teal-dark); background: var(--teal-soft); padding: 6px 12px; border-radius: 999px; }
+  .hero h1 { font-size: clamp(30px, 8vw, 50px); margin: 16px 0 0; }
+  .hero h1 .swap { color: var(--teal); }
+  .hero .lead { font-size: clamp(16px, 4.4vw, 19px); color: var(--ink2); margin-top: 16px; max-width: 30ch; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; align-items: center; }
+  .note { font-size: 13px; color: var(--ink3); font-weight: 600; }
+
+  /* assistant mockup card */
+  .mock { background: var(--card); border: 2px solid var(--teal); border-radius: 22px; padding: 18px; box-shadow: var(--shadow); max-width: 380px; margin: 0 auto; }
+  .mock-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .mock-top b { font-family: var(--display); font-weight: 800; font-size: 16px; display: block; }
+  .mock-top span { font-size: 12px; color: var(--ink3); font-weight: 700; }
+  .bubble { background: var(--teal-soft); color: var(--teal-dark); border-radius: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.45; margin-bottom: 10px; }
+  .bubble.you { background: var(--amber-soft); color: var(--amber-dark); margin-left: 26px; }
+  .tagrow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tag { font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: var(--amber-soft); color: var(--amber-dark); }
+
+  /* section shell */
+  section { padding: 46px 0; }
+  .kicker { font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--amber-dark); }
+  .h2 { font-size: clamp(24px, 6vw, 34px); margin-top: 10px; }
+  .sub2 { color: var(--ink2); font-size: 16.5px; margin-top: 12px; max-width: 56ch; }
+
+  .shift { background: var(--teal); color: #fff; border-radius: 24px; padding: 30px 26px; text-align: center; }
+  .shift h2 { font-size: clamp(22px, 5.5vw, 30px); }
+  .shift p { color: #d6efe9; margin-top: 12px; max-width: 46ch; margin-inline: auto; }
+  .shift b { color: #ffd789; }
+
+  /* steps */
+  .steps { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 26px; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: flex; gap: 14px; align-items: flex-start; }
+  .step .num { flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--teal-soft); color: var(--teal-dark); font-family: var(--display); font-weight: 800; font-size: 18px; display: grid; place-items: center; }
+  .step h3 { font-size: 17px; }
+  .step p { color: var(--ink2); font-size: 14.5px; margin-top: 5px; }
+
+  /* benefits */
+  .grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 26px; }
+  .benefit { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  .benefit .ic { width: 42px; height: 42px; border-radius: 12px; background: var(--amber-soft); display: grid; place-items: center; margin-bottom: 12px; }
+  .benefit h3 { font-size: 16px; }
+  .benefit p { color: var(--ink2); font-size: 14px; margin-top: 5px; }
+
+  /* ladder */
+  .rungs { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+  .rung { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 15px 18px; }
+  .rung .rn { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: 14px; background: var(--bg); color: var(--ink3); border: 1px solid var(--line); }
+  .rung.on { border-color: var(--teal); }
+  .rung.on .rn { background: var(--teal); color: #fff; border-color: var(--teal); }
+  .rung .rt { font-weight: 700; font-size: 15px; }
+  .rung .rtag { margin-left: auto; font-size: 11.5px; font-weight: 800; color: var(--amber-dark); background: var(--amber-soft); padding: 4px 9px; border-radius: 999px; }
+
+  /* roles */
+  .roles { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 22px; }
+  .role { font-family: var(--display); font-weight: 700; font-size: 14px; padding: 9px 15px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); }
+
+  /* final cta */
+  .final { background: linear-gradient(160deg, var(--teal), var(--teal-dark)); color: #fff; border-radius: 26px; padding: 44px 26px; text-align: center; }
+  .final h2 { font-size: clamp(24px, 6vw, 34px); }
+  .final p { color: #d6efe9; margin: 12px auto 22px; max-width: 40ch; }
+
+  footer { padding: 34px 0 46px; border-top: 1px solid var(--line); margin-top: 46px; }
+  .foot { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; color: var(--ink3); font-size: 13px; font-weight: 600; }
+
+  @media (min-width: 760px) {
+    .hero-grid { grid-template-columns: 1.05fr .95fr; }
+    .hero .lead { max-width: 34ch; }
+    .steps { grid-template-columns: 1fr 1fr; }
+    .steps .step:first-child { grid-column: 1 / -1; }
+    .grid { grid-template-columns: 1fr 1fr 1fr; }
+  }
+</style>
 </head>
 <body>
-  <div id="app" role="main" aria-live="polite"></div>
 
-  <!-- offline banner -->
-  <div id="offline-banner" class="offline-banner" hidden>You're offline. Your progress is saved on this device.</div>
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <span class="mark">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/><circle cx="12" cy="12" r="3"/></svg>
+      </span>
+      KaamAI
+    </div>
+    <a class="btn btn-teal" href="app/">Start free</a>
+  </div>
+</header>
 
-  <script src="config.js"></script>
-  <script src="vendor/supabase.min.js"></script>
-  <script src="sync.js"></script>
-  <script src="app.js"></script>
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><path d="M13 2L3 14h6l-1 8 10-12h-6z"/></svg>
+          Free · No code · Works on any phone
+        </span>
+        <h1>Still using ChatGPT<br>like a <span class="swap">search box?</span></h1>
+        <p class="lead">KaamAI walks you through building your own AI that actually does your daily work — a real assistant you build in one sitting and keep.</p>
+        <div class="cta-row">
+          <a class="btn btn-amber" href="app/">Build yours free
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3d2c06" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="#how">See how it works</a>
+        </div>
+        <p class="note" style="margin-top:14px;">No sign-up needed to begin.</p>
+      </div>
+
+      <div class="mock" aria-hidden="true">
+        <div class="mock-top">
+          <svg width="46" height="46" viewBox="0 0 48 48"><rect x="6" y="9" width="36" height="33" rx="14" fill="#0f766e"/><circle cx="34.5" cy="8" r="3.2" fill="#f59e0b"/><circle cx="19" cy="25" r="3" fill="#fff"/><circle cx="30" cy="25" r="3" fill="#fff"/><path d="M18.5 32 q5.5 5 11 0" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>
+          <div><b>Priya's Assistant</b><span>Marketing Report Assistant</span></div>
+        </div>
+        <div class="bubble">Give me your campaign numbers, I'll draft the report ready for your manager.</div>
+        <div class="bubble you">Here are this week's numbers…</div>
+        <div class="tagrow">
+          <span class="tag">Manager-ready</span>
+          <span class="tag">Yours to keep</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE SHIFT -->
+  <section style="padding-top:8px;">
+    <div class="wrap">
+      <div class="shift">
+        <h2>Don't just search with AI. Build with it.</h2>
+        <p>Most people type one-off questions and get generic answers. You'll build a <b>real assistant that knows your work</b> — and open it any time.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how">
+    <div class="wrap">
+      <span class="kicker">How it works</span>
+      <h2 class="h2">Five guided steps. One real assistant.</h2>
+      <p class="sub2">No jargon, no setup headaches. Each step unlocks the moment you finish the last — a motivated you can build the whole thing in one sitting.</p>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><div><h3>Write its job</h3><p>Tell your assistant exactly what it does, in plain language — the role, tone and format that turn a search box into a real assistant.</p></div></div>
+        <div class="step"><div class="num">2</div><div><h3>Give it your context</h3><p>One real example of your own work teaches it your voice — so it sounds like you, not a generic AI.</p></div></div>
+        <div class="step"><div class="num">3</div><div><h3>Build it for real</h3><p>Create the actual assistant in Gemini (free). It's saved in your account — not a one-off chat.</p></div></div>
+        <div class="step"><div class="num">4</div><div><h3>Test it</h3><p>Run it once and learn to steer it — the skill most people never pick up.</p></div></div>
+        <div class="step"><div class="num">5</div><div><h3>Use it for real</h3><p>Put it on an actual task today. That's the moment it stops being an exercise.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHAT YOU GET -->
+  <section style="padding-top:8px;">
+    <div class="wrap">
+      <span class="kicker">Why it's different</span>
+      <h2 class="h2">You come out with a skill, not a demo.</h2>
+      <div class="grid">
+        <div class="benefit"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h3>A real assistant you keep</h3><p>Not a tutorial you forget — a working tool saved in your own account.</p></div>
+        <div class="benefit"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M3 20h4M5 20V8a2 2 0 0 1 2-2h4"/><path d="M12 4l2 4 4 .5-3 3 .8 4-3.8-2-3.8 2 .8-4-3-3 4-.5z"/></svg></div><h3>Learn by doing</h3><p>You do the thinking at every step — that's what actually sticks.</p></div>
+        <div class="benefit"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg></div><h3>Works on any phone</h3><p>Built mobile-first and light — no fancy device or fast connection needed.</p></div>
+        <div class="benefit"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3 2.4V14"/><path d="M12 17h.01"/></svg></div><h3>Free, no code</h3><p>Uses Gemini's free tier. Nothing to install, nothing to pay.</p></div>
+        <div class="benefit"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3c2 3 4 4 4 8a5 5 0 0 1-10 0c0-1 .5-2 1-2.5C9 11 13 8 13 3z"/></svg></div><h3>Real momentum</h3><p>Streaks, XP and a visible build keep you moving — without busywork.</p></div>
+        <div class="benefit"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><path d="M9 20h6M12 4v16"/></svg></div><h3>Made for your work</h3><p>Tuned to real tasks across everyday roles — not toy examples.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE LADDER -->
+  <section style="padding-top:8px;">
+    <div class="wrap">
+      <span class="kicker">This is just rung one</span>
+      <h2 class="h2">A journey, not a one-off.</h2>
+      <p class="sub2">Building your assistant is the first rung of a ladder that takes you from "I use ChatGPT sometimes" to genuinely AI-capable.</p>
+      <div class="rungs">
+        <div class="rung on"><div class="rn">1</div><span class="rt">Build your AI assistant</span><span class="rtag">Start here</span></div>
+        <div class="rung"><div class="rn">2</div><span class="rt">Give it your knowledge</span></div>
+        <div class="rung"><div class="rn">3</div><span class="rt">Automate a real task</span></div>
+        <div class="rung"><div class="rn">4</div><span class="rt">Build a tool others use</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHO IT'S FOR -->
+  <section style="padding-top:8px;">
+    <div class="wrap">
+      <span class="kicker">Who it's for</span>
+      <h2 class="h2">Everyday professionals, not engineers.</h2>
+      <p class="sub2">If your day has grunt work — reports, emails, notes, summaries — there's an assistant here for you.</p>
+      <div class="roles">
+        <span class="role">Marketing</span><span class="role">Sales</span><span class="role">HR</span><span class="role">Operations</span><span class="role">Finance</span><span class="role">Support</span><span class="role">Teaching</span><span class="role">Admin</span><span class="role">…and more</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section style="padding-top:8px;">
+    <div class="wrap">
+      <div class="final">
+        <h2>Build your assistant in the next 20 minutes.</h2>
+        <p>Free, no code, no sign-up to begin. Come out with a real AI that works for you.</p>
+        <a class="btn btn-amber" href="app/">Build yours free
+          <svg viewBox="0 0 24 24" fill="none" stroke="#3d2c06" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div class="brand" style="font-size:17px;">
+      <span class="mark" style="width:26px;height:26px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/><circle cx="12" cy="12" r="3"/></svg>
+      </span>
+      KaamAI
+    </div>
+    <span>Build your own AI, don't just search with it. · Made in India 🇮🇳</span>
+  </div>
+</footer>
+
 </body>
 </html>

@@ -16,9 +16,10 @@ import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
-const syncSrc = readFileSync(join(ROOT, "sync.js"), "utf8");
-const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
-const curriculum = JSON.parse(readFileSync(join(ROOT, "content/curriculum.json"), "utf8"));
+const APP = join(ROOT, "app");
+const syncSrc = readFileSync(join(APP, "sync.js"), "utf8");
+const appSrc = readFileSync(join(APP, "app.js"), "utf8");
+const curriculum = JSON.parse(readFileSync(join(APP, "content/curriculum.json"), "utf8"));
 
 // ---------- tiny assert framework ----------
 let passed = 0, failed = 0;
