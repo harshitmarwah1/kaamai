@@ -9,6 +9,28 @@
 
   var CUR = null; // curriculum.json, loaded async
 
+  // Backend sync layer (sync.js). Fall back to no-ops if it failed to load, so
+  // the app always runs, backend or not.
+  var SYNC = window.KaamaiSync || {
+    init: function () { return false; },
+    enabled: function () { return false; },
+    authed: function () { return false; },
+    normalizePhone: function (p) { return p; },
+    getSession: function () { return Promise.resolve(null); },
+    sendOtp: function () { return Promise.resolve({ ok: false, error: "backend-disabled" }); },
+    verifyOtp: function () { return Promise.resolve({ ok: false, error: "backend-disabled" }); },
+    provisionFromDraft: function () { return Promise.resolve(null); },
+    ensureAssistant: function () { return Promise.resolve(null); },
+    syncUp: function () {},
+    logEvent: function () {},
+    insertCompletion: function () {},
+    flushQueues: function () {},
+    pullState: function () { return Promise.resolve(null); }
+  };
+
+  // Transient OTP UI state for the Commit screen (never persisted).
+  var otpUI = { stage: "phone", phone: "", error: "", sending: false, verifying: false };
+
   // ---------- short, clean assistant-name labels per task ----------
   var SHORT_TASK = {
     "Writing campaign reports": "Report",
@@ -67,6 +89,8 @@
       lastActiveDay: null,
       lastWinReward: null,
       stepProgress: freshStepProgress(),
+      assistantId: null,
+      assistantStatus: "building",
       updatedAt: null
     };
   }
@@ -103,11 +127,29 @@
 
   function saveState() {
     state.updatedAt = Date.now();
+    saveLocalOnly();
+    SYNC.syncUp(state); // debounced, no-op until authenticated
+  }
+
+  // Write to localStorage without bumping updatedAt or triggering a sync — used
+  // when applying server state during boot merge, so we don't clobber it.
+  function saveLocalOnly() {
+    state.assistantName = assistantName();
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       console.warn("KaamAI: could not persist state (storage may be full/blocked).", e);
     }
+  }
+
+  // Overwrite local fields with the server's copy (server wins when newer).
+  function mergeServerState(serverState, updatedAt) {
+    for (var k in serverState) {
+      if (serverState.hasOwnProperty(k)) state[k] = serverState[k];
+    }
+    if (!state.stepProgress) state.stepProgress = freshStepProgress();
+    state.updatedAt = updatedAt || Date.now();
+    saveLocalOnly();
   }
 
   // ---------- helpers ----------
@@ -318,23 +360,62 @@
         '<span style="font-size:14px;font-weight:700;">' + esc(s.title) + "</span></div>"
       );
     }).join("");
+    var backend = SYNC.enabled();
+    var sub = backend
+      ? "Verify your number so your assistant is saved to your account, on any device."
+      : "Everything is saved on this device so it’s here when you come back.";
     return (
       '<div class="screen">' +
       topBar(true, 4, 4) +
       '<div class="content">' +
       '<h1 class="h1" style="font-size:23px;">Ready? ' + steps.length + ' quick steps and it’s built.</h1>' +
-      '<p class="sub">Everything is saved on this device so it’s here when you come back.</p>' +
-      '<div class="field">' +
-      '<label class="flabel" for="phoneInput">Mobile number (optional)</label>' +
-      '<input class="textinput" id="phoneInput" type="tel" inputmode="numeric" placeholder="98765 43210" value="' + esc(state.phone) + '" maxlength="15">' +
-      "</div>" +
+      '<p class="sub">' + sub + "</p>" +
       '<div class="card">' +
       '<p class="flabel" style="margin-bottom:10px;">Your build path</p>' + stepsHtml +
       "</div>" +
-      '<button class="btn btn-amber" data-act="commit:start" data-autofocus>Start step 1 ' + icon("arrow", { stroke: "#3d2c06" }) + "</button>" +
+      commitAuthRegion(backend) +
       '<div class="reassure">' + icon("lock", { size: 16, stroke: "var(--ink3)" }) +
       "<span>Go as fast as you like. Steps unlock the moment you finish one, no waiting.</span></div>" +
       "</div></div>"
+    );
+  }
+
+  // The phone/OTP/start region of the Commit screen. Local-only mode keeps the
+  // original optional-phone + "Start step 1" behaviour untouched.
+  function commitAuthRegion(backend) {
+    var arrow = icon("arrow", { stroke: "#3d2c06" });
+    if (!backend) {
+      return (
+        '<div class="field">' +
+        '<label class="flabel" for="phoneInput">Mobile number (optional)</label>' +
+        '<input class="textinput" id="phoneInput" type="tel" inputmode="numeric" placeholder="98765 43210" value="' + esc(state.phone) + '" maxlength="15">' +
+        "</div>" +
+        '<button class="btn btn-amber" data-act="commit:start" data-autofocus>Start step 1 ' + arrow + "</button>"
+      );
+    }
+    var err = otpUI.error ? '<p class="note" style="color:#c0392b;">' + esc(otpUI.error) + "</p>" : "";
+    if (otpUI.stage === "code") {
+      var disp = SYNC.normalizePhone(otpUI.phone);
+      return (
+        '<p class="sub" style="margin-top:2px;">Enter the code we sent to <b>' + esc(disp) + "</b>. " +
+        '<a data-act="otp:back" style="color:var(--teal);cursor:pointer;font-weight:700;">change number</a></p>' +
+        '<div class="field">' +
+        '<label class="flabel" for="otpInput">6-digit code</label>' +
+        '<input class="textinput" id="otpInput" type="tel" inputmode="numeric" placeholder="123456" maxlength="6" data-autofocus>' +
+        "</div>" + err +
+        '<button class="btn btn-amber" data-act="otp:verify"' + (otpUI.verifying ? " disabled" : "") + ">" +
+        (otpUI.verifying ? "Verifying…" : "Verify &amp; start " + arrow) + "</button>" +
+        '<button class="btn btn-ghost" data-act="otp:resend">Resend code</button>'
+      );
+    }
+    return (
+      '<div class="field">' +
+      '<label class="flabel" for="phoneInput">Mobile number</label>' +
+      '<input class="textinput" id="phoneInput" type="tel" inputmode="numeric" placeholder="98765 43210" value="' + esc(otpUI.phone || state.phone) + '" maxlength="15" data-autofocus>' +
+      "</div>" + err +
+      '<button class="btn btn-amber" data-act="otp:send"' + (otpUI.sending ? " disabled" : "") + ">" +
+      (otpUI.sending ? "Sending…" : "Send code " + arrow) + "</button>" +
+      '<p class="note">We’ll text you a 6-digit code to verify it’s you.</p>'
     );
   }
 
@@ -594,6 +675,7 @@
   function handleAction(act, val, el) {
     switch (act) {
       case "welcome:start":
+        SYNC.logEvent("welcome_start", {});
         go("name");
         break;
 
@@ -602,6 +684,7 @@
         if (nameEl) state.name = nameEl.value.trim().slice(0, 40);
         state.role = val;
         state.task = ""; // role changed, task choice no longer valid
+        SYNC.logEvent("role_picked", { role: val });
         saveState();
         go("taskAudience");
         break;
@@ -609,6 +692,7 @@
 
       case "select:task":
         state.task = val;
+        SYNC.logEvent("task_picked", { task: val });
         saveState();
         render();
         break;
@@ -636,6 +720,75 @@
         state.stepProgress = freshStepProgress();
         saveState();
         go("chat");
+        break;
+      }
+
+      case "otp:send":
+      case "otp:resend": {
+        var pEl = document.getElementById("phoneInput");
+        var phone = pEl ? pEl.value.trim() : otpUI.phone;
+        if (act === "otp:send") {
+          if (!phone || phone.replace(/\D/g, "").length < 8) {
+            otpUI.error = "Enter a valid mobile number.";
+            render();
+            break;
+          }
+          otpUI.phone = phone;
+        }
+        otpUI.error = "";
+        otpUI.sending = true;
+        render();
+        SYNC.sendOtp(otpUI.phone).then(function (res) {
+          otpUI.sending = false;
+          if (res.ok) {
+            otpUI.stage = "code";
+            if (act === "otp:resend") toast("Code re-sent.");
+          } else {
+            otpUI.error = friendlyAuthError(res.error);
+          }
+          render();
+        });
+        break;
+      }
+
+      case "otp:back":
+        otpUI.stage = "phone";
+        otpUI.error = "";
+        render();
+        break;
+
+      case "otp:verify": {
+        var cEl = document.getElementById("otpInput");
+        var code = cEl ? cEl.value.trim() : "";
+        if (!/^\d{4,8}$/.test(code)) {
+          otpUI.error = "Enter the code we texted you.";
+          render();
+          break;
+        }
+        otpUI.error = "";
+        otpUI.verifying = true;
+        render();
+        SYNC.verifyOtp(otpUI.phone, code).then(function (res) {
+          otpUI.verifying = false;
+          if (!res.ok) {
+            otpUI.error = friendlyAuthError(res.error);
+            render();
+            return;
+          }
+          // Verified: this is now a real account. Carry the draft into it.
+          state.phone = SYNC.normalizePhone(otpUI.phone);
+          state.stepIndex = 0;
+          state.stepProgress = freshStepProgress();
+          SYNC.logEvent("otp_verified", {});
+          saveState();
+          go("chat"); // optimistic — provisioning runs in the background
+          SYNC.provisionFromDraft(state).then(function (assistantId) {
+            if (assistantId) {
+              state.assistantId = assistantId;
+              saveState();
+            }
+          });
+        });
         break;
       }
 
@@ -692,6 +845,7 @@
         break;
 
       case "ladder:rung2":
+        SYNC.logEvent("notify_rung2", {});
         toast("Rung 2 is coming soon. We’ll notify you when it’s ready.");
         break;
 
@@ -778,8 +932,23 @@
   function finishCurrentStep() {
     var step = currentStep();
     applyStepCompletionRewards(step);
+    var isFinal = state.completedSteps.length >= CUR.steps.length;
+    if (isFinal) state.assistantStatus = "complete";
+    else if (step.id === "test") state.assistantStatus = "tested";
+    SYNC.insertCompletion(state, step);
+    SYNC.logEvent("step_completed", { stepId: step.id, n: step.n });
+    if (isFinal) SYNC.logEvent("rung1_complete", {});
     saveState();
     go("win");
+  }
+
+  function friendlyAuthError(err) {
+    var e = String(err || "");
+    if (/backend-disabled/.test(e)) return "Verification isn’t set up yet. Try again later.";
+    if (/rate|too many|limit/i.test(e)) return "Too many tries. Wait a minute and retry.";
+    if (/invalid|expired|token/i.test(e)) return "That code didn’t match. Check it and try again.";
+    if (/network|fetch|Failed/i.test(e)) return "Network hiccup. Check your connection and retry.";
+    return e || "Something went wrong. Please try again.";
   }
 
   function copyInstructions(btnEl) {
@@ -835,15 +1004,32 @@
 
   function boot() {
     state = loadState();
-    fetch(CURRICULUM_URL)
+
+    var curriculumP = fetch(CURRICULUM_URL)
       .then(function (r) {
         if (!r.ok) throw new Error("curriculum fetch failed: " + r.status);
         return r.json();
       })
-      .then(function (json) {
-        CUR = json;
-        render();
-      })
+      .then(function (json) { CUR = json; });
+
+    // Restore from the backend if a session exists. Server wins when its copy is
+    // newer than the local one (last-write-wins by updated_at). Never blocks the
+    // app: any failure falls back to the local state.
+    var restoreP = Promise.resolve();
+    if (SYNC.enabled()) {
+      restoreP = SYNC.getSession().then(function (session) {
+        if (!session) return null;
+        return SYNC.pullState().then(function (pulled) {
+          if (pulled && pulled.updatedAt >= (state.updatedAt || 0)) {
+            mergeServerState(pulled.state, pulled.updatedAt);
+          }
+          SYNC.flushQueues();
+        });
+      }).catch(function (e) { console.warn("KaamAI: restore skipped", e); });
+    }
+
+    Promise.all([curriculumP, restoreP])
+      .then(function () { render(); })
       .catch(function (err) {
         console.error("KaamAI: failed to load curriculum.json", err);
         app.innerHTML =

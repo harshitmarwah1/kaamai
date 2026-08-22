@@ -1,0 +1,12 @@
+{
+  "name": "kaamai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "KaamAI PWA — dev tooling only (the app itself has no build step).",
+  "scripts": {
+    "test": "node test/harness.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}

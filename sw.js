@@ -1,8 +1,11 @@
-var CACHE_NAME = "kaamai-shell-v1";
+var CACHE_NAME = "kaamai-shell-v2";
 var PRECACHE = [
   "./",
   "./index.html",
   "./styles.css",
+  "./config.js",
+  "./vendor/supabase.min.js",
+  "./sync.js",
   "./app.js",
   "./manifest.json",
   "./content/curriculum.json",
