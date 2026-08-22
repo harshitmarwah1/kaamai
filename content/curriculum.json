@@ -1,0 +1,175 @@
+{
+  "meta": {
+    "rung": 1,
+    "title": "Build Your AI Assistant",
+    "builder": "Gemini Gems",
+    "builderUrl": "https://gemini.google.com/gems",
+    "verified": "2026-08-22",
+    "freeTier": true
+  },
+
+  "roles": {
+    "Marketing":  ["Writing campaign reports", "Drafting social posts", "Coming up with content ideas", "Summarizing research"],
+    "Sales":      ["Writing follow-up emails", "Preparing call notes", "Building proposals", "Summarizing pipeline updates"],
+    "HR":         ["Writing job descriptions", "Screening summaries", "Drafting policy notes", "Interview questions"],
+    "Operations": ["Writing status reports", "Documenting processes", "Summarizing incidents", "Vendor comparisons"],
+    "Finance":    ["Explaining numbers to non-finance", "Monthly summaries", "Expense reviews", "Budget notes"],
+    "Support":    ["Replying to common questions", "Summarizing tickets", "Writing help articles", "Escalation notes"],
+    "Teaching":   ["Making lesson plans", "Writing feedback for students", "Creating quiz questions", "Parent updates"],
+    "Admin":      ["Writing meeting minutes", "Scheduling messages", "Formatting documents", "Travel summaries"],
+    "Other":      ["Writing reports", "Drafting emails", "Summarizing documents", "Preparing notes"]
+  },
+
+  "audiences": ["my manager", "clients", "my team"],
+
+  "steps": [
+    {
+      "id": "job",
+      "n": 1,
+      "title": "Write its job",
+      "subtitle": "Tell your assistant exactly what it does",
+      "minutes": 5,
+      "xp": 40,
+      "teaches": "A clear role, tone and format is what separates a real assistant from a search box.",
+      "turns": [
+        {
+          "coach": "Let's write your assistant's job description. When it writes for {audience}, should it lead with the headline number, or the story first?",
+          "chips": [
+            { "label": "Headline number first", "sets": { "lead": "Start with the headline number or result, then the supporting detail." } },
+            { "label": "Story first", "sets": { "lead": "Start with a one-line summary of what happened, then the numbers behind it." } },
+            { "label": "Not sure, you choose", "sets": { "lead": "Start with the headline number or result, then the supporting detail." } }
+          ]
+        },
+        {
+          "coach": "Good. And the tone, short and punchy or more detail?",
+          "chips": [
+            { "label": "Short & punchy", "sets": { "tone": "Direct and concise. Short sentences. No filler." } },
+            { "label": "Longer, more detail", "sets": { "tone": "Thorough and explanatory, but never padded." } },
+            { "label": "A mix", "sets": { "tone": "Concise by default, with detail where it matters." } }
+          ]
+        },
+        {
+          "coach": "Last one. Anything it should never do?",
+          "chips": [
+            { "label": "Never guess numbers", "sets": { "constraint": "Never invent or estimate numbers. If a figure is missing, ask for it." } },
+            { "label": "Keep it jargon-free", "sets": { "constraint": "Avoid jargon and buzzwords. Write so anyone can follow it." } },
+            { "label": "Just facts, no opinions", "sets": { "constraint": "Stick to what the data says. Do not add opinions or recommendations unless asked." } }
+          ]
+        }
+      ],
+      "produces": "instructions",
+      "outputTemplate": "You are {assistantName}, an assistant that helps with {task} for {audience}.\n\nRole: You turn raw notes and numbers into a clear, {audience}-ready piece of work.\nFormat: {lead}\nTone: {tone}\nConstraints: {constraint} If information is missing, ask for it rather than filling the gap yourself.",
+      "closing": "That is a real set of instructions. You just wrote the brain of your assistant."
+    },
+
+    {
+      "id": "context",
+      "n": 2,
+      "title": "Give it your context",
+      "subtitle": "One real example teaches it your voice",
+      "minutes": 5,
+      "xp": 40,
+      "teaches": "One real example of your own work does more than a page of description.",
+      "turns": [
+        {
+          "coach": "Now the part that makes it sound like you, not a generic AI. Do you have an old {task} you wrote? Even a few lines works.",
+          "chips": [
+            { "label": "I'll paste an example", "sets": { "hasExample": true }, "opensInput": true },
+            { "label": "I don't have one handy", "sets": { "hasExample": false } }
+          ]
+        }
+      ],
+      "produces": "instructionsAppend",
+      "outputTemplate": "\n\nExample of my past work (match this style and structure):\n\"\"\"\n{example}\n\"\"\"",
+      "noExampleNote": "No problem. Your Gem can also hold up to 10 knowledge files, so once you have a couple of {task} saved you can upload them later. We'll start without an example and refine after your first real use.",
+      "closing": "Your assistant now knows how you write, not just what to write."
+    },
+
+    {
+      "id": "create",
+      "n": 3,
+      "title": "Build it for real",
+      "subtitle": "Create the actual Gem in Gemini",
+      "minutes": 6,
+      "xp": 60,
+      "teaches": "This is the real thing: a saved assistant you can open any time, not a one-off chat.",
+      "turns": [
+        {
+          "coach": "Time to bring it to life. Open Gemini, then Gems, then New Gem. Paste in the name and the instructions you just built, and save.",
+          "action": { "type": "openBuilder", "label": "Open Gemini Gems" },
+          "chips": [
+            { "label": "Done, it's saved", "sets": { "created": true } },
+            { "label": "I got stuck", "sets": { "created": false } }
+          ]
+        }
+      ],
+      "help": {
+        "stuck": "Two things trip most people up. One: Gems live behind the menu on the left at gemini.google.com, not in the chat box. Two: the Instructions field is the big one, that is where your text goes. Your instructions are still saved here, so nothing is lost."
+      },
+      "produces": "gemCreated",
+      "closing": "Your assistant exists now. It is saved in your Gemini account, and it is yours."
+    },
+
+    {
+      "id": "test",
+      "n": 4,
+      "title": "Test it",
+      "subtitle": "Run it once and see what it does",
+      "minutes": 5,
+      "xp": 50,
+      "teaches": "Testing before you rely on it is how you learn to steer an AI instead of hoping.",
+      "turns": [
+        {
+          "coach": "Let's test it. In Gemini, open your assistant and try this: \"Draft a {task} for {audience}. Here's what happened this week: ...\" then describe it in your own words.",
+          "chips": [
+            { "label": "It worked well", "sets": { "result": "good" } },
+            { "label": "Close, needs a tweak", "sets": { "result": "close" } },
+            { "label": "It didn't work", "sets": { "result": "bad" } }
+          ]
+        }
+      ],
+      "branches": {
+        "good": "That is your assistant doing your work. Keep the instructions as they are for now.",
+        "close": "Normal, and easy to fix. Open the Gem, edit the Instructions, and add one line about what you wanted differently. Small edits beat rewrites.",
+        "bad": "Almost always one of two things: the instructions were too general, or it had no example to copy. Add a real example to the Instructions and try once more."
+      },
+      "produces": "tested",
+      "closing": "You just debugged an AI. That is the skill most people never pick up."
+    },
+
+    {
+      "id": "use",
+      "n": 5,
+      "title": "Use it for real",
+      "subtitle": "Put it on an actual task, today",
+      "minutes": 5,
+      "xp": 70,
+      "teaches": "An assistant you use is a skill. An assistant you built and never opened is a demo.",
+      "turns": [
+        {
+          "coach": "This is the moment it stops being an exercise. Do you have a real {task} due soon?",
+          "chips": [
+            { "label": "Yes, I'll use it now", "sets": { "willUse": "now" } },
+            { "label": "Soon, not today", "sets": { "willUse": "soon" } }
+          ]
+        },
+        {
+          "coach": "Go run it on that real task. Come back and tell me how it went.",
+          "chips": [
+            { "label": "It saved me real time", "sets": { "outcome": "big" } },
+            { "label": "A little time", "sets": { "outcome": "some" } },
+            { "label": "Not yet", "sets": { "outcome": "none" } }
+          ]
+        }
+      ],
+      "produces": "usedForReal",
+      "closing": "You built an AI assistant and used it on real work. That is rung one, done."
+    }
+  ],
+
+  "completion": {
+    "title": "You built your first AI.",
+    "body": "Most people never get past using AI as a search box. You have a working assistant you made yourself.",
+    "nextRung": { "n": 2, "title": "Give it your knowledge", "teaser": "Feed it your documents so it knows your world, not just your style." }
+  }
+}
