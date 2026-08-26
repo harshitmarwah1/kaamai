@@ -375,7 +375,7 @@
       ? "Everything is saved on this device so it’s here when you come back."
       : SYNC.authed()
         ? "You’re signed in. Let’s build your assistant."
-        : "Verify your number so your assistant is saved to your account, on any device.";
+        : "Verify your email so your assistant is saved to your account, on any device.";
     return (
       '<div class="screen">' +
       topBar(true, 4, 4) +
@@ -443,7 +443,7 @@
     var verifyLabel = otpUI.context === "login" ? "Verify &amp; continue " : "Verify &amp; start ";
     return (
       '<p class="sub" style="margin-top:2px;">Enter the code we sent to <b>' + esc(disp) + "</b>. " +
-      '<a data-act="otp:back" style="color:var(--teal);cursor:pointer;font-weight:700;">change number</a></p>' +
+      '<a data-act="otp:back" style="color:var(--teal);cursor:pointer;font-weight:700;">change email</a></p>' +
       '<div class="field">' +
       '<label class="flabel" for="otpInput">6-digit code</label>' +
       '<input class="textinput" id="otpInput" type="tel" inputmode="numeric" placeholder="123456" maxlength="6" data-autofocus>' +
@@ -462,7 +462,7 @@
       topBar(true, 0, 0) +
       '<div class="content">' +
       '<h1 class="h1">Welcome back</h1>' +
-      '<p class="sub">Log in with your mobile number to pick up where you left off, on any device.</p>' +
+      '<p class="sub">Log in with your email to pick up where you left off, on any device.</p>' +
       region +
       "</div></div>"
     );
@@ -1016,7 +1016,7 @@
   }
 
   // After OTP verify from the "Log in" screen: pull the server copy and route.
-  // Existing assistant -> resume on the home dashboard. New number (or a profile
+  // Existing assistant -> resume on the home dashboard. New email (or a profile
   // with no assistant yet) -> treat as a new user and drop into the onramp; they
   // are already authenticated, so the Commit step skips a second OTP.
   function completeLogin() {
