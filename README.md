@@ -38,6 +38,8 @@ vendor/
   supabase.min.js vendored @supabase/supabase-js v2 UMD build (no CDN at runtime)
 db/
   schema.sql      Postgres schema + Row-Level Security (apply on a fresh project)
+supabase/
+  functions/send-sms/   OTP delivery hook: WhatsApp-first, SMS fallback via MSG91
 manifest.json     PWA manifest
 sw.js             offline shell cache
 content/
@@ -55,10 +57,15 @@ The app is the system of record for everything a user does; here is how to wire 
 1. Create a Supabase project. Run `db/schema.sql` in the SQL editor (creates
    `profiles`, `assistants`, `step_completions`, `events`, all with RLS so each
    user only reads/writes their own rows).
-2. Enable the **Phone** auth provider. Users sign in with phone OTP, gated at the
-   Commit screen. For dev/MVP add **test phone numbers** (Authentication →
-   Providers → Phone) — they return a fixed OTP with no SMS sent. Production
-   needs a configured SMS provider (Twilio/MSG91/…) plus India DLT registration.
+2. Enable the **Phone** auth provider. Users authenticate with a 6-digit phone
+   OTP, either at the **Commit** step (new users, after the onramp) or via the
+   **"Log in"** entry on the welcome screen (returning users resume on any
+   device). For dev/MVP add **test phone numbers** (Authentication → Providers →
+   Phone) — they return a fixed OTP with no message sent. For real delivery,
+   deploy the `supabase/functions/send-sms` hook (WhatsApp-first, SMS fallback
+   via MSG91) and enable it under Authentication → Hooks; see that folder's
+   README. Real SMS also needs India DLT registration; WhatsApp needs a WhatsApp
+   Business sender.
 3. Put the project's **public** URL + anon key in `config.js` (Settings → API).
    These are safe to ship — RLS is what protects data. **Never** put the
    `service_role` key in the client.

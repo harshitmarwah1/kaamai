@@ -64,8 +64,11 @@ function makeMockSupabase(opts = {}) {
       limit() { rec.methods.push("limit"); return b; },
       single() { rec.methods.push("single"); return finalize(); },
       maybeSingle() { rec.methods.push("maybeSingle"); return finalize(); },
-      then(res, rej) { return finalize().then(res, rej); },
-      catch(rej) { return finalize().catch(rej); }
+      // Thenable ONLY — the real PostgREST query builder has no .catch()/.finally();
+      // it is only awaitable via .then(). Mirroring that here means code that calls
+      // .catch() directly on a builder (instead of .then(ok, err)) throws in tests
+      // just as it does in the browser, so that class of bug can't pass unnoticed.
+      then(res, rej) { return finalize().then(res, rej); }
     };
     return b;
   }
@@ -135,6 +138,7 @@ async function testLocalOnly() {
   const { win } = await buildApp({ config: {} });
 
   ok(has(win, '[data-act="welcome:start"]'), "boots to welcome screen");
+  ok(!has(win, '[data-act="login:open"]'), "no Log in entry on welcome in local-only mode");
   onboardToCommit(win);
   ok(has(win, '[data-act="commit:start"]'), "commit uses legacy commit:start button");
   ok(has(win, "#phoneInput"), "commit shows optional phone field");
@@ -227,10 +231,85 @@ async function testBootRestore() {
 }
 
 // ===========================================================================
+async function testHybridLogin() {
+  console.log("D. hybrid login (Log in entry, returning + new-number routing)");
+  const cfg = { SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "anon" };
+
+  // --- D1: new number via "Log in" -> onramp -> authed commit skips OTP ---
+  {
+    const { win, spy } = await buildApp({ config: cfg, supabaseOpts: {} });
+    ok(has(win, '[data-act="login:open"]'), "welcome shows Log in entry when backend enabled");
+
+    click(win, '[data-act="login:open"]');
+    ok(has(win, "#phoneInput"), "Log in screen shows the phone field");
+
+    setVal(win, "phoneInput", "9876543210");
+    click(win, '[data-act="otp:send"]');
+    await settle();
+    ok(spy.ops.some((o) => o.op === "signInWithOtp"), "Log in sends OTP");
+    ok(has(win, "#otpInput"), "advances to code entry");
+
+    setVal(win, "otpInput", "123456");
+    click(win, '[data-act="otp:verify"]');
+    await settle(20);
+    // pullState returns null (no profile/assistant) -> treated as new user -> onramp
+    ok(has(win, "#nameInput") || has(win, '[data-act="select:role"]'), "new number routes into the onramp");
+
+    // finish the onramp; already authenticated, so Commit must skip a 2nd OTP
+    setVal(win, "nameInput", "Newbie");
+    click(win, '[data-act="select:role"]');
+    click(win, '[data-act="select:task"]');
+    click(win, '[data-act="select:audience"]');   // -> teaser
+    click(win, '[data-act="go:commit"]');          // -> commit
+    ok(has(win, '[data-act="commit:startAuthed"]'), "authed user gets direct start at commit");
+    ok(!has(win, '[data-act="otp:send"]'), "no second OTP prompt when already logged in");
+
+    click(win, '[data-act="commit:startAuthed"]');
+    await settle(20);
+    ok(spy.ops.some((o) => o.table === "assistants" && o.methods.includes("insert")), "authed commit provisions the assistant");
+    ok(has(win, "#chatScroll") || /Step 1/.test(text(win)), "lands in the build flow after authed commit");
+  }
+
+  // --- D2: existing number via "Log in" -> resume on home ---
+  {
+    const supabaseOpts = {
+      userId: "u9",
+      profile: { id: "u9", name: "Return Riya", phone: "+919876543210", xp: 80, streak: 3, last_active_day: "2026-08-25", updated_at: "2999-01-01T00:00:00Z" },
+      assistants: [{ id: "asst-9", user_id: "u9", role: "Marketing", task: "Drafting social posts", audience: "my team", instructions_text: "You are ...", status: "building", answers: {}, step_progress: {}, step_index: 2, completed_steps: ["job", "context"], updated_at: "2999-01-01T00:00:00Z" }]
+    }; // NOTE: no `session` -> boot does not auto-login; the user must log in
+    const { win } = await buildApp({ config: cfg, supabaseOpts });
+    ok(has(win, '[data-act="welcome:start"]'), "no session -> boots to welcome (no auto-login)");
+
+    click(win, '[data-act="login:open"]');
+    setVal(win, "phoneInput", "9876543210");
+    click(win, '[data-act="otp:send"]');
+    await settle();
+    setVal(win, "otpInput", "123456");
+    click(win, '[data-act="otp:verify"]');
+    await settle(20);
+    const t = text(win);
+    ok(/Return Riya/.test(t), "existing number resumes: restored name shown");
+    ok(/80/.test(t), "existing number resumes: restored XP shown");
+  }
+
+  // --- D3: phone must be exactly 10 digits ---
+  {
+    const { win, spy } = await buildApp({ config: cfg, supabaseOpts: {} });
+    click(win, '[data-act="login:open"]');
+    setVal(win, "phoneInput", "12345");
+    click(win, '[data-act="otp:send"]');
+    await settle();
+    ok(!spy.ops.some((o) => o.op === "signInWithOtp"), "short phone number does not send an OTP");
+    ok(/10-digit/.test(text(win)), "shows the 10-digit validation message");
+  }
+}
+
+// ===========================================================================
 (async function main() {
   await testLocalOnly();
   await testBackendFlow();
   await testBootRestore();
+  await testHybridLogin();
   console.log("\n" + passed + " passed, " + failed + " failed");
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

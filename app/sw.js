@@ -1,4 +1,4 @@
-var CACHE_NAME = "kaamai-shell-v3";
+var CACHE_NAME = "kaamai-shell-v4";
 var PRECACHE = [
   "./",
   "./index.html",

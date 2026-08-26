@@ -159,9 +159,14 @@
     syncTimer = null;
     var state = pendingState;
     if (!state || !authed() || !state.assistantId) return;
-    client.from("profiles").upsert(profileRowFromState(state)).catch(noop);
+    // NOTE: .then(noop, noop) — NOT .catch(). The PostgREST query builder is
+    // thenable but has no .catch(), so `.catch(noop)` threw synchronously and
+    // aborted this whole function before either write executed (profile xp/
+    // streak and assistant progress silently never synced). .then triggers the
+    // request and swallows success + error alike.
+    client.from("profiles").upsert(profileRowFromState(state)).then(noop, noop);
     client.from("assistants").update(assistantRowFromState(state))
-      .eq("id", state.assistantId).catch(noop);
+      .eq("id", state.assistantId).then(noop, noop);
     flushQueues();
   }
 

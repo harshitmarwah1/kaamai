@@ -28,8 +28,17 @@
     pullState: function () { return Promise.resolve(null); }
   };
 
-  // Transient OTP UI state for the Commit screen (never persisted).
-  var otpUI = { stage: "phone", phone: "", error: "", sending: false, verifying: false };
+  // Transient OTP UI state, shared by the Commit gate and the Log in screen
+  // (never persisted). `context` tells the verify handler where to route.
+  var otpUI = { stage: "phone", phone: "", error: "", sending: false, verifying: false, context: "commit" };
+  function resetOtpUI(context) {
+    otpUI.stage = "phone";
+    otpUI.phone = "";
+    otpUI.error = "";
+    otpUI.sending = false;
+    otpUI.verifying = false;
+    otpUI.context = context || "commit";
+  }
 
   // ---------- short, clean assistant-name labels per task ----------
   var SHORT_TASK = {
@@ -247,6 +256,7 @@
       case "taskAudience": html = renderTaskAudience(); break;
       case "teaser": html = renderTeaser(); break;
       case "commit": html = renderCommit(); break;
+      case "login": html = renderLogin(); break;
       case "home": html = renderHome(); break;
       case "chat": html = renderChat(); break;
       case "win": html = renderWin(); break;
@@ -273,6 +283,7 @@
       "</div></div>" +
       '<div style="display:flex;flex-direction:column;gap:14px;">' +
       '<button class="btn btn-amber" data-act="welcome:start" data-autofocus>Start (2 min, free) ' + icon("arrow", { stroke: "#3d2c06" }) + "</button>" +
+      (SYNC.enabled() ? '<button class="btn btn-ghost" data-act="login:open">Already started? Log in</button>' : "") +
       '<p class="note">No sign-up needed to begin.</p>' +
       "</div></div></div>"
     );
@@ -361,9 +372,11 @@
       );
     }).join("");
     var backend = SYNC.enabled();
-    var sub = backend
-      ? "Verify your number so your assistant is saved to your account, on any device."
-      : "Everything is saved on this device so it’s here when you come back.";
+    var sub = !backend
+      ? "Everything is saved on this device so it’s here when you come back."
+      : SYNC.authed()
+        ? "You’re signed in. Let’s build your assistant."
+        : "Verify your number so your assistant is saved to your account, on any device.";
     return (
       '<div class="screen">' +
       topBar(true, 4, 4) +
@@ -381,41 +394,78 @@
   }
 
   // The phone/OTP/start region of the Commit screen. Local-only mode keeps the
-  // original optional-phone + "Start step 1" behaviour untouched.
+  // original optional-phone + "Start step 1" behaviour untouched. When the user
+  // is already authenticated (e.g. they arrived via "Log in" then filled the
+  // onramp), skip the OTP and let them start building directly.
   function commitAuthRegion(backend) {
     var arrow = icon("arrow", { stroke: "#3d2c06" });
     if (!backend) {
       return (
         '<div class="field">' +
         '<label class="flabel" for="phoneInput">Mobile number (optional)</label>' +
-        '<input class="textinput" id="phoneInput" type="tel" inputmode="numeric" placeholder="98765 43210" value="' + esc(state.phone) + '" maxlength="15">' +
+        '<input class="textinput" id="phoneInput" type="tel" inputmode="numeric" placeholder="98765 43210" value="' + esc(state.phone) + '" maxlength="10">' +
         "</div>" +
         '<button class="btn btn-amber" data-act="commit:start" data-autofocus>Start step 1 ' + arrow + "</button>"
       );
     }
-    var err = otpUI.error ? '<p class="note" style="color:#c0392b;">' + esc(otpUI.error) + "</p>" : "";
-    if (otpUI.stage === "code") {
-      var disp = SYNC.normalizePhone(otpUI.phone);
+    if (SYNC.authed()) {
       return (
-        '<p class="sub" style="margin-top:2px;">Enter the code we sent to <b>' + esc(disp) + "</b>. " +
-        '<a data-act="otp:back" style="color:var(--teal);cursor:pointer;font-weight:700;">change number</a></p>' +
-        '<div class="field">' +
-        '<label class="flabel" for="otpInput">6-digit code</label>' +
-        '<input class="textinput" id="otpInput" type="tel" inputmode="numeric" placeholder="123456" maxlength="6" data-autofocus>' +
-        "</div>" + err +
-        '<button class="btn btn-amber" data-act="otp:verify"' + (otpUI.verifying ? " disabled" : "") + ">" +
-        (otpUI.verifying ? "Verifying…" : "Verify &amp; start " + arrow) + "</button>" +
-        '<button class="btn btn-ghost" data-act="otp:resend">Resend code</button>'
+        '<div class="reassure" style="margin-bottom:12px;">' + icon("check", { size: 16, stroke: "#0a5850" }) +
+        "<span>You’re signed in" + (state.phone ? " as <b>" + esc(state.phone) + "</b>" : "") + ".</span></div>" +
+        '<button class="btn btn-amber" data-act="commit:startAuthed" data-autofocus>Start step 1 ' + arrow + "</button>"
       );
     }
+    if (otpUI.stage === "code") return otpCodeStage();
+    return otpPhoneStage({ autofocus: true });
+  }
+
+  // Shared OTP fields, used by BOTH the Commit gate and the "Log in" screen so the
+  // send/verify handlers (which read #phoneInput / #otpInput and drive otpUI) work
+  // identically in either place. otpUI.context tells the verify handler where to go.
+  function otpPhoneStage(opts) {
+    opts = opts || {};
+    var arrow = icon("arrow", { stroke: "#3d2c06" });
+    var err = otpUI.error ? '<p class="note" style="color:#c0392b;">' + esc(otpUI.error) + "</p>" : "";
     return (
       '<div class="field">' +
       '<label class="flabel" for="phoneInput">Mobile number</label>' +
-      '<input class="textinput" id="phoneInput" type="tel" inputmode="numeric" placeholder="98765 43210" value="' + esc(otpUI.phone || state.phone) + '" maxlength="15" data-autofocus>' +
+      '<input class="textinput" id="phoneInput" type="tel" inputmode="numeric" placeholder="98765 43210" value="' + esc(otpUI.phone || state.phone) + '" maxlength="10"' + (opts.autofocus ? " data-autofocus" : "") + ">" +
       "</div>" + err +
       '<button class="btn btn-amber" data-act="otp:send"' + (otpUI.sending ? " disabled" : "") + ">" +
       (otpUI.sending ? "Sending…" : "Send code " + arrow) + "</button>" +
-      '<p class="note">We’ll text you a 6-digit code to verify it’s you.</p>'
+      '<p class="note">We’ll send a 6-digit code to your WhatsApp (or SMS) to verify it’s you.</p>'
+    );
+  }
+
+  function otpCodeStage() {
+    var arrow = icon("arrow", { stroke: "#3d2c06" });
+    var disp = SYNC.normalizePhone(otpUI.phone);
+    var err = otpUI.error ? '<p class="note" style="color:#c0392b;">' + esc(otpUI.error) + "</p>" : "";
+    var verifyLabel = otpUI.context === "login" ? "Verify &amp; continue " : "Verify &amp; start ";
+    return (
+      '<p class="sub" style="margin-top:2px;">Enter the code we sent to <b>' + esc(disp) + "</b>. " +
+      '<a data-act="otp:back" style="color:var(--teal);cursor:pointer;font-weight:700;">change number</a></p>' +
+      '<div class="field">' +
+      '<label class="flabel" for="otpInput">6-digit code</label>' +
+      '<input class="textinput" id="otpInput" type="tel" inputmode="numeric" placeholder="123456" maxlength="6" data-autofocus>' +
+      "</div>" + err +
+      '<button class="btn btn-amber" data-act="otp:verify"' + (otpUI.verifying ? " disabled" : "") + ">" +
+      (otpUI.verifying ? "Verifying…" : verifyLabel + arrow) + "</button>" +
+      '<button class="btn btn-ghost" data-act="otp:resend">Resend code</button>'
+    );
+  }
+
+  // "Log in" screen — returning users authenticate with mobile + OTP and resume.
+  function renderLogin() {
+    var region = otpUI.stage === "code" ? otpCodeStage() : otpPhoneStage({ autofocus: true });
+    return (
+      '<div class="screen">' +
+      topBar(true, 0, 0) +
+      '<div class="content">' +
+      '<h1 class="h1">Welcome back</h1>' +
+      '<p class="sub">Log in with your mobile number to pick up where you left off, on any device.</p>' +
+      region +
+      "</div></div>"
     );
   }
 
@@ -706,20 +756,41 @@
       case "go:back":
         if (state.screen === "name") go("welcome");
         else if (state.screen === "taskAudience") go("name");
+        else if (state.screen === "login") go("welcome");
         else render();
         break;
 
       case "go:commit":
+        otpUI.context = "commit";
+        otpUI.error = "";
         go("commit");
+        break;
+
+      case "login:open":
+        resetOtpUI("login");
+        go("login");
         break;
 
       case "commit:start": {
         var phoneEl = document.getElementById("phoneInput");
-        if (phoneEl) state.phone = phoneEl.value.trim().slice(0, 15);
+        if (phoneEl) state.phone = phoneEl.value.trim().slice(0, 10);
         state.stepIndex = 0;
         state.stepProgress = freshStepProgress();
         saveState();
         go("chat");
+        break;
+      }
+
+      case "commit:startAuthed": {
+        // Already authenticated (arrived via "Log in", then filled the onramp).
+        // Provision the profile + assistant from the draft, then start building.
+        state.stepIndex = 0;
+        state.stepProgress = freshStepProgress();
+        saveState();
+        go("chat");
+        SYNC.provisionFromDraft(state).then(function (assistantId) {
+          if (assistantId) { state.assistantId = assistantId; saveState(); }
+        });
         break;
       }
 
@@ -728,8 +799,8 @@
         var pEl = document.getElementById("phoneInput");
         var phone = pEl ? pEl.value.trim() : otpUI.phone;
         if (act === "otp:send") {
-          if (!phone || phone.replace(/\D/g, "").length < 8) {
-            otpUI.error = "Enter a valid mobile number.";
+          if (!phone || phone.replace(/\D/g, "").length !== 10) {
+            otpUI.error = "Enter a 10-digit mobile number.";
             render();
             break;
           }
@@ -761,7 +832,7 @@
         var cEl = document.getElementById("otpInput");
         var code = cEl ? cEl.value.trim() : "";
         if (!/^\d{4,8}$/.test(code)) {
-          otpUI.error = "Enter the code we texted you.";
+          otpUI.error = "Enter the code we sent you.";
           render();
           break;
         }
@@ -775,19 +846,10 @@
             render();
             return;
           }
-          // Verified: this is now a real account. Carry the draft into it.
           state.phone = SYNC.normalizePhone(otpUI.phone);
-          state.stepIndex = 0;
-          state.stepProgress = freshStepProgress();
           SYNC.logEvent("otp_verified", {});
-          saveState();
-          go("chat"); // optimistic — provisioning runs in the background
-          SYNC.provisionFromDraft(state).then(function (assistantId) {
-            if (assistantId) {
-              state.assistantId = assistantId;
-              saveState();
-            }
-          });
+          if (otpUI.context === "login") completeLogin();
+          else completeCommitVerify();
         });
         break;
       }
@@ -940,6 +1002,34 @@
     if (isFinal) SYNC.logEvent("rung1_complete", {});
     saveState();
     go("win");
+  }
+
+  // After OTP verify from the Commit gate: this is now a real account; carry the
+  // local draft into it and start building. Provisioning runs in the background.
+  function completeCommitVerify() {
+    state.stepIndex = 0;
+    state.stepProgress = freshStepProgress();
+    saveState();
+    go("chat"); // optimistic — provisioning runs in the background
+    SYNC.provisionFromDraft(state).then(function (assistantId) {
+      if (assistantId) { state.assistantId = assistantId; saveState(); }
+    });
+  }
+
+  // After OTP verify from the "Log in" screen: pull the server copy and route.
+  // Existing assistant -> resume on the home dashboard. New number (or a profile
+  // with no assistant yet) -> treat as a new user and drop into the onramp; they
+  // are already authenticated, so the Commit step skips a second OTP.
+  function completeLogin() {
+    saveState();
+    SYNC.pullState().then(function (pulled) {
+      SYNC.flushQueues();
+      if (pulled && pulled.state) {
+        mergeServerState(pulled.state, pulled.updatedAt);
+        if (pulled.state.assistantId) { go("home"); return; }
+      }
+      go("name");
+    }).catch(function () { go("name"); });
   }
 
   function friendlyAuthError(err) {
