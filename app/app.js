@@ -15,7 +15,6 @@
     init: function () { return false; },
     enabled: function () { return false; },
     authed: function () { return false; },
-    normalizePhone: function (p) { return p; },
     getSession: function () { return Promise.resolve(null); },
     sendOtp: function () { return Promise.resolve({ ok: false, error: "backend-disabled" }); },
     verifyOtp: function () { return Promise.resolve({ ok: false, error: "backend-disabled" }); },
@@ -30,10 +29,10 @@
 
   // Transient OTP UI state, shared by the Commit gate and the Log in screen
   // (never persisted). `context` tells the verify handler where to route.
-  var otpUI = { stage: "phone", phone: "", error: "", sending: false, verifying: false, context: "commit" };
+  var otpUI = { stage: "email", email: "", error: "", sending: false, verifying: false, context: "commit" };
   function resetOtpUI(context) {
-    otpUI.stage = "phone";
-    otpUI.phone = "";
+    otpUI.stage = "email";
+    otpUI.email = "";
     otpUI.error = "";
     otpUI.sending = false;
     otpUI.verifying = false;
@@ -88,7 +87,7 @@
       role: "",
       task: "",
       audience: "",
-      phone: "",
+      email: "",
       stepIndex: 0,
       answers: {}, // merged across all turns: lead, tone, constraint, hasExample, example, created, result, willUse, outcome
       instructionsText: "",
@@ -393,8 +392,8 @@
     );
   }
 
-  // The phone/OTP/start region of the Commit screen. Local-only mode keeps the
-  // original optional-phone + "Start step 1" behaviour untouched. When the user
+  // The email/OTP/start region of the Commit screen. Local-only mode keeps the
+  // original optional-email + "Start step 1" behaviour untouched. When the user
   // is already authenticated (e.g. they arrived via "Log in" then filled the
   // onramp), skip the OTP and let them start building directly.
   function commitAuthRegion(backend) {
@@ -402,8 +401,8 @@
     if (!backend) {
       return (
         '<div class="field">' +
-        '<label class="flabel" for="phoneInput">Mobile number (optional)</label>' +
-        '<input class="textinput" id="phoneInput" type="tel" inputmode="numeric" placeholder="98765 43210" value="' + esc(state.phone) + '" maxlength="10">' +
+        '<label class="flabel" for="emailInput">Email (optional)</label>' +
+        '<input class="textinput" id="emailInput" type="email" inputmode="email" placeholder="you@example.com" value="' + esc(state.email) + '">' +
         "</div>" +
         '<button class="btn btn-amber" data-act="commit:start" data-autofocus>Start step 1 ' + arrow + "</button>"
       );
@@ -411,35 +410,35 @@
     if (SYNC.authed()) {
       return (
         '<div class="reassure" style="margin-bottom:12px;">' + icon("check", { size: 16, stroke: "#0a5850" }) +
-        "<span>You’re signed in" + (state.phone ? " as <b>" + esc(state.phone) + "</b>" : "") + ".</span></div>" +
+        "<span>You’re signed in" + (state.email ? " as <b>" + esc(state.email) + "</b>" : "") + ".</span></div>" +
         '<button class="btn btn-amber" data-act="commit:startAuthed" data-autofocus>Start step 1 ' + arrow + "</button>"
       );
     }
     if (otpUI.stage === "code") return otpCodeStage();
-    return otpPhoneStage({ autofocus: true });
+    return otpEmailStage({ autofocus: true });
   }
 
   // Shared OTP fields, used by BOTH the Commit gate and the "Log in" screen so the
-  // send/verify handlers (which read #phoneInput / #otpInput and drive otpUI) work
+  // send/verify handlers (which read #emailInput / #otpInput and drive otpUI) work
   // identically in either place. otpUI.context tells the verify handler where to go.
-  function otpPhoneStage(opts) {
+  function otpEmailStage(opts) {
     opts = opts || {};
     var arrow = icon("arrow", { stroke: "#3d2c06" });
     var err = otpUI.error ? '<p class="note" style="color:#c0392b;">' + esc(otpUI.error) + "</p>" : "";
     return (
       '<div class="field">' +
-      '<label class="flabel" for="phoneInput">Mobile number</label>' +
-      '<input class="textinput" id="phoneInput" type="tel" inputmode="numeric" placeholder="98765 43210" value="' + esc(otpUI.phone || state.phone) + '" maxlength="10"' + (opts.autofocus ? " data-autofocus" : "") + ">" +
+      '<label class="flabel" for="emailInput">Email</label>' +
+      '<input class="textinput" id="emailInput" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="' + esc(otpUI.email || state.email) + '"' + (opts.autofocus ? " data-autofocus" : "") + ">" +
       "</div>" + err +
       '<button class="btn btn-amber" data-act="otp:send"' + (otpUI.sending ? " disabled" : "") + ">" +
       (otpUI.sending ? "Sending…" : "Send code " + arrow) + "</button>" +
-      '<p class="note">We’ll send a 6-digit code to your WhatsApp (or SMS) to verify it’s you.</p>'
+      '<p class="note">We’ll email you a 6-digit code to verify it’s you.</p>'
     );
   }
 
   function otpCodeStage() {
     var arrow = icon("arrow", { stroke: "#3d2c06" });
-    var disp = SYNC.normalizePhone(otpUI.phone);
+    var disp = otpUI.email;
     var err = otpUI.error ? '<p class="note" style="color:#c0392b;">' + esc(otpUI.error) + "</p>" : "";
     var verifyLabel = otpUI.context === "login" ? "Verify &amp; continue " : "Verify &amp; start ";
     return (
@@ -457,7 +456,7 @@
 
   // "Log in" screen — returning users authenticate with mobile + OTP and resume.
   function renderLogin() {
-    var region = otpUI.stage === "code" ? otpCodeStage() : otpPhoneStage({ autofocus: true });
+    var region = otpUI.stage === "code" ? otpCodeStage() : otpEmailStage({ autofocus: true });
     return (
       '<div class="screen">' +
       topBar(true, 0, 0) +
@@ -772,8 +771,8 @@
         break;
 
       case "commit:start": {
-        var phoneEl = document.getElementById("phoneInput");
-        if (phoneEl) state.phone = phoneEl.value.trim().slice(0, 10);
+        var emailEl = document.getElementById("emailInput");
+        if (emailEl) state.email = emailEl.value.trim();
         state.stepIndex = 0;
         state.stepProgress = freshStepProgress();
         saveState();
@@ -796,20 +795,20 @@
 
       case "otp:send":
       case "otp:resend": {
-        var pEl = document.getElementById("phoneInput");
-        var phone = pEl ? pEl.value.trim() : otpUI.phone;
+        var eEl = document.getElementById("emailInput");
+        var email = eEl ? eEl.value.trim() : otpUI.email;
         if (act === "otp:send") {
-          if (!phone || phone.replace(/\D/g, "").length !== 10) {
-            otpUI.error = "Enter a 10-digit mobile number.";
+          if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            otpUI.error = "Enter a valid email address.";
             render();
             break;
           }
-          otpUI.phone = phone;
+          otpUI.email = email;
         }
         otpUI.error = "";
         otpUI.sending = true;
         render();
-        SYNC.sendOtp(otpUI.phone).then(function (res) {
+        SYNC.sendOtp(otpUI.email).then(function (res) {
           otpUI.sending = false;
           if (res.ok) {
             otpUI.stage = "code";
@@ -823,7 +822,7 @@
       }
 
       case "otp:back":
-        otpUI.stage = "phone";
+        otpUI.stage = "email";
         otpUI.error = "";
         render();
         break;
@@ -839,14 +838,14 @@
         otpUI.error = "";
         otpUI.verifying = true;
         render();
-        SYNC.verifyOtp(otpUI.phone, code).then(function (res) {
+        SYNC.verifyOtp(otpUI.email, code).then(function (res) {
           otpUI.verifying = false;
           if (!res.ok) {
             otpUI.error = friendlyAuthError(res.error);
             render();
             return;
           }
-          state.phone = SYNC.normalizePhone(otpUI.phone);
+          state.email = otpUI.email;
           SYNC.logEvent("otp_verified", {});
           if (otpUI.context === "login") completeLogin();
           else completeCommitVerify();

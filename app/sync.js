@@ -49,15 +49,9 @@
     return !!(client && currentUser);
   }
 
-  // ---------- phone helpers ----------
-  // Supabase phone auth needs E.164. Assume India (+91) for a bare 10-digit number.
-  function normalizePhone(raw) {
-    var s = String(raw || "").replace(/[^\d+]/g, "");
-    if (!s) return "";
-    if (s.charAt(0) === "+") return s;
-    if (s.length === 10) return "+91" + s;
-    if (s.length === 12 && s.slice(0, 2) === "91") return "+" + s;
-    return "+" + s;
+  // ---------- email helper ----------
+  function normalizeEmail(raw) {
+    return String(raw || "").trim().toLowerCase();
   }
 
   // ---------- auth ----------
@@ -70,9 +64,9 @@
     }).catch(function () { return null; });
   }
 
-  function sendOtp(phone) {
+  function sendOtp(email) {
     if (!enabled()) return Promise.resolve({ ok: false, error: "backend-disabled" });
-    return client.auth.signInWithOtp({ phone: normalizePhone(phone) })
+    return client.auth.signInWithOtp({ email: normalizeEmail(email) })
       .then(function (res) {
         if (res.error) return { ok: false, error: res.error.message };
         return { ok: true };
@@ -80,9 +74,9 @@
       .catch(function (e) { return { ok: false, error: String(e && e.message || e) }; });
   }
 
-  function verifyOtp(phone, code) {
+  function verifyOtp(email, code) {
     if (!enabled()) return Promise.resolve({ ok: false, error: "backend-disabled" });
-    return client.auth.verifyOtp({ phone: normalizePhone(phone), token: String(code), type: "sms" })
+    return client.auth.verifyOtp({ email: normalizeEmail(email), token: String(code), type: "email" })
       .then(function (res) {
         if (res.error) return { ok: false, error: res.error.message };
         var session = res.data ? res.data.session : null;
@@ -112,7 +106,7 @@
   function profileRowFromState(state) {
     return {
       id: currentUser.id,
-      phone: normalizePhone(state.phone) || null,
+      email: normalizeEmail(state.email) || null,
       name: state.name || null,
       xp: state.xp || 0,
       streak: state.streak || 0,
@@ -242,7 +236,7 @@
       var s = {};
       if (profile) {
         s.name = profile.name || "";
-        s.phone = profile.phone || "";
+        s.email = profile.email || "";
         s.xp = profile.xp || 0;
         s.streak = profile.streak || 0;
         s.lastActiveDay = profile.last_active_day || null;
@@ -271,7 +265,6 @@
     init: init,
     enabled: enabled,
     authed: authed,
-    normalizePhone: normalizePhone,
     getSession: getSession,
     sendOtp: sendOtp,
     verifyOtp: verifyOtp,

@@ -141,7 +141,7 @@ async function testLocalOnly() {
   ok(!has(win, '[data-act="login:open"]'), "no Log in entry on welcome in local-only mode");
   onboardToCommit(win);
   ok(has(win, '[data-act="commit:start"]'), "commit uses legacy commit:start button");
-  ok(has(win, "#phoneInput"), "commit shows optional phone field");
+  ok(has(win, "#emailInput"), "commit shows optional email field");
   ok(!has(win, '[data-act="otp:send"]'), "no OTP button when backend disabled");
 
   click(win, '[data-act="commit:start"]');
@@ -172,12 +172,12 @@ async function testBackendFlow() {
   ok(!has(win, '[data-act="commit:start"]'), "legacy commit:start hidden when backend enabled");
 
   // send OTP
-  setVal(win, "phoneInput", "9876543210");
+  setVal(win, "emailInput", "user@test.com");
   click(win, '[data-act="otp:send"]');
   await settle();
   ok(spy.ops.some((o) => o.op === "signInWithOtp"), "otp:send calls signInWithOtp");
   const sent = spy.ops.find((o) => o.op === "signInWithOtp");
-  ok(sent && sent.args.phone === "+919876543210", "phone normalized to E.164 (+91)");
+  ok(sent && sent.args.email === "user@test.com", "email passed to signInWithOtp");
   ok(has(win, "#otpInput"), "advances to code-entry stage");
 
   // verify OTP -> provisions account + assistant, carries the draft in
@@ -217,7 +217,7 @@ async function testBootRestore() {
   const supabaseOpts = {
     session: { user: { id: "u9" } },
     userId: "u9",
-    profile: { id: "u9", name: "Server Sam", phone: "+910000000000", xp: 123, streak: 7, last_active_day: "2026-08-22", updated_at: "2999-01-01T00:00:00Z" },
+    profile: { id: "u9", name: "Server Sam", email: "sam@test.com", xp: 123, streak: 7, last_active_day: "2026-08-22", updated_at: "2999-01-01T00:00:00Z" },
     assistants: [{ id: "asst-9", user_id: "u9", role: "Marketing", task: "Writing campaign reports", audience: "my manager", instructions_text: "You are ...", status: "building", answers: {}, step_progress: {}, step_index: 1, completed_steps: ["job"], updated_at: "2999-01-01T00:00:00Z" }]
   };
   const { win, spy } = await buildApp({ config: cfg, supabaseOpts });
@@ -232,18 +232,18 @@ async function testBootRestore() {
 
 // ===========================================================================
 async function testHybridLogin() {
-  console.log("D. hybrid login (Log in entry, returning + new-number routing)");
+  console.log("D. hybrid login (Log in entry, returning + new-email routing)");
   const cfg = { SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "anon" };
 
-  // --- D1: new number via "Log in" -> onramp -> authed commit skips OTP ---
+  // --- D1: new email via "Log in" -> onramp -> authed commit skips OTP ---
   {
     const { win, spy } = await buildApp({ config: cfg, supabaseOpts: {} });
     ok(has(win, '[data-act="login:open"]'), "welcome shows Log in entry when backend enabled");
 
     click(win, '[data-act="login:open"]');
-    ok(has(win, "#phoneInput"), "Log in screen shows the phone field");
+    ok(has(win, "#emailInput"), "Log in screen shows the email field");
 
-    setVal(win, "phoneInput", "9876543210");
+    setVal(win, "emailInput", "newbie@test.com");
     click(win, '[data-act="otp:send"]');
     await settle();
     ok(spy.ops.some((o) => o.op === "signInWithOtp"), "Log in sends OTP");
@@ -253,7 +253,7 @@ async function testHybridLogin() {
     click(win, '[data-act="otp:verify"]');
     await settle(20);
     // pullState returns null (no profile/assistant) -> treated as new user -> onramp
-    ok(has(win, "#nameInput") || has(win, '[data-act="select:role"]'), "new number routes into the onramp");
+    ok(has(win, "#nameInput") || has(win, '[data-act="select:role"]'), "new email routes into the onramp");
 
     // finish the onramp; already authenticated, so Commit must skip a 2nd OTP
     setVal(win, "nameInput", "Newbie");
@@ -270,37 +270,37 @@ async function testHybridLogin() {
     ok(has(win, "#chatScroll") || /Step 1/.test(text(win)), "lands in the build flow after authed commit");
   }
 
-  // --- D2: existing number via "Log in" -> resume on home ---
+  // --- D2: existing email via "Log in" -> resume on home ---
   {
     const supabaseOpts = {
       userId: "u9",
-      profile: { id: "u9", name: "Return Riya", phone: "+919876543210", xp: 80, streak: 3, last_active_day: "2026-08-25", updated_at: "2999-01-01T00:00:00Z" },
+      profile: { id: "u9", name: "Return Riya", email: "riya@test.com", xp: 80, streak: 3, last_active_day: "2026-08-25", updated_at: "2999-01-01T00:00:00Z" },
       assistants: [{ id: "asst-9", user_id: "u9", role: "Marketing", task: "Drafting social posts", audience: "my team", instructions_text: "You are ...", status: "building", answers: {}, step_progress: {}, step_index: 2, completed_steps: ["job", "context"], updated_at: "2999-01-01T00:00:00Z" }]
     }; // NOTE: no `session` -> boot does not auto-login; the user must log in
     const { win } = await buildApp({ config: cfg, supabaseOpts });
     ok(has(win, '[data-act="welcome:start"]'), "no session -> boots to welcome (no auto-login)");
 
     click(win, '[data-act="login:open"]');
-    setVal(win, "phoneInput", "9876543210");
+    setVal(win, "emailInput", "riya@test.com");
     click(win, '[data-act="otp:send"]');
     await settle();
     setVal(win, "otpInput", "123456");
     click(win, '[data-act="otp:verify"]');
     await settle(20);
     const t = text(win);
-    ok(/Return Riya/.test(t), "existing number resumes: restored name shown");
-    ok(/80/.test(t), "existing number resumes: restored XP shown");
+    ok(/Return Riya/.test(t), "existing email resumes: restored name shown");
+    ok(/80/.test(t), "existing email resumes: restored XP shown");
   }
 
-  // --- D3: phone must be exactly 10 digits ---
+  // --- D3: email must be a valid address ---
   {
     const { win, spy } = await buildApp({ config: cfg, supabaseOpts: {} });
     click(win, '[data-act="login:open"]');
-    setVal(win, "phoneInput", "12345");
+    setVal(win, "emailInput", "not-an-email");
     click(win, '[data-act="otp:send"]');
     await settle();
-    ok(!spy.ops.some((o) => o.op === "signInWithOtp"), "short phone number does not send an OTP");
-    ok(/10-digit/.test(text(win)), "shows the 10-digit validation message");
+    ok(!spy.ops.some((o) => o.op === "signInWithOtp"), "invalid email does not send an OTP");
+    ok(/valid email/.test(text(win)), "shows the invalid-email validation message");
   }
 }
 

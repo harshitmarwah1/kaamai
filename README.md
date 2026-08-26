@@ -38,8 +38,6 @@ vendor/
   supabase.min.js vendored @supabase/supabase-js v2 UMD build (no CDN at runtime)
 db/
   schema.sql      Postgres schema + Row-Level Security (apply on a fresh project)
-supabase/
-  functions/send-sms/   OTP delivery hook: WhatsApp-first, SMS fallback via MSG91
 manifest.json     PWA manifest
 sw.js             offline shell cache
 content/
@@ -57,15 +55,15 @@ The app is the system of record for everything a user does; here is how to wire 
 1. Create a Supabase project. Run `db/schema.sql` in the SQL editor (creates
    `profiles`, `assistants`, `step_completions`, `events`, all with RLS so each
    user only reads/writes their own rows).
-2. Enable the **Phone** auth provider. Users authenticate with a 6-digit phone
-   OTP, either at the **Commit** step (new users, after the onramp) or via the
-   **"Log in"** entry on the welcome screen (returning users resume on any
-   device). For dev/MVP add **test phone numbers** (Authentication → Providers →
-   Phone) — they return a fixed OTP with no message sent. For real delivery,
-   deploy the `supabase/functions/send-sms` hook (WhatsApp-first, SMS fallback
-   via MSG91) and enable it under Authentication → Hooks; see that folder's
-   README. Real SMS also needs India DLT registration; WhatsApp needs a WhatsApp
-   Business sender.
+2. Enable the **Email** auth provider (disable Phone). Users authenticate with a
+   6-digit **email** code, either at the **Commit** step (new users, after the
+   onramp) or via the **"Log in"** entry on the welcome screen (returning users
+   resume on any device). In **Authentication → Email Templates**, edit the
+   Magic Link / OTP template to include `{{ .Token }}` so the mail shows the
+   6-digit code (the default template sends a link instead). For real delivery,
+   configure a custom SMTP provider — **Resend** — under **Project Settings →
+   Auth → SMTP** (free tier; verify a sending domain, or use `onboarding@resend.dev`
+   to test). No SMS provider, DLT, or WhatsApp setup is needed.
 3. Put the project's **public** URL + anon key in `config.js` (Settings → API).
    These are safe to ship — RLS is what protects data. **Never** put the
    `service_role` key in the client.
@@ -74,7 +72,7 @@ Leaving `config.js` empty keeps the app fully working in local-only mode.
 
 ## Data model
 
-- `profiles` (1:1 with `auth.users`) — phone, name, and per-user gamification
+- `profiles` (1:1 with `auth.users`) — email, name, and per-user gamification
   (xp, streak, last_active_day).
 - `assistants` — the artifact the user builds: role/task/audience, the generated
   instructions, status, and the variadic bits (`answers`, `step_progress`) as
@@ -95,12 +93,11 @@ Leaving `config.js` empty keeps the app fully working in local-only mode.
 
 ## Status
 
-Deployed (GitHub + Vercel). Supabase backend integrated in code: phone-OTP
-auth at the Commit screen, account + assistant provisioning, offline-first
-sync, and funnel analytics. Requires a Supabase project + `config.js` values to
-go live; runs local-only until then. Still to do: create the Supabase project +
-apply `db/schema.sql`, configure a production SMS provider, and set the config
-values on Vercel.
+Deployed (GitHub + Vercel). Supabase backend: email-OTP auth (6-digit code) at
+the Commit screen and via the "Log in" entry, account + assistant provisioning,
+offline-first sync, and funnel analytics. Requires a Supabase project +
+`config.js` values to go live; runs local-only until then. Still to do: enable
+the Email provider, add the `{{ .Token }}` email template, and configure Resend SMTP.
 
 ## Testing
 
@@ -112,10 +109,11 @@ npm test      # node test/harness.mjs
 The harness executes the real `app.js` + `sync.js` inside jsdom and drives real
 click events: (A) local-only mode end-to-end through all five steps to the
 ladder, proving the pre-backend behaviour is untouched; (B) backend mode against
-a mocked Supabase client — OTP send/verify, account + assistant provisioning,
+a mocked Supabase client — email-OTP send/verify, account + assistant provisioning,
 buffered funnel-event flush, step-completion rows, and debounced sync-up; (C)
-boot-time restore from an existing session with server-wins-when-newer merge.
+boot-time restore from an existing session with server-wins-when-newer merge; and
+(D) the hybrid "Log in" entry, returning-vs-new routing, and email validation.
 
 Not verified here: actual visual/pixel rendering in a real browser and a live
-round-trip against a real Supabase project (needs project + SMS provider) — the
+round-trip against a real Supabase project (needs project + Resend email) — the
 logic and DOM output are proven correct; give the deployed app a manual look.

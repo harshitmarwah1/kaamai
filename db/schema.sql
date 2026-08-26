@@ -2,16 +2,15 @@
 -- Apply in the Supabase SQL editor (or `supabase db push`) on a fresh project.
 -- Everything the app persists lives here; localStorage is only an offline cache.
 --
--- Auth: phone OTP (Supabase Auth "Phone" provider). For dev/MVP use Supabase
--- test phone numbers (fixed OTP, no SMS provider needed). Production needs a
--- configured SMS provider (Twilio/MSG91/...) + India DLT registration.
+-- Auth: email OTP (Supabase Auth "Email" provider, 6-digit code). Emails are
+-- delivered via a custom SMTP provider (Resend) configured in the dashboard.
 
 -- ---------------------------------------------------------------------------
 -- profiles: 1:1 with auth.users; identity + per-user gamification
 -- ---------------------------------------------------------------------------
 create table if not exists profiles (
   id              uuid primary key references auth.users(id) on delete cascade,
-  phone           text,
+  email           text,
   name            text,
   xp              int  not null default 0,
   streak          int  not null default 0,
