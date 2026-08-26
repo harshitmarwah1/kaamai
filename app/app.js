@@ -445,8 +445,8 @@
       '<p class="sub" style="margin-top:2px;">Enter the code we sent to <b>' + esc(disp) + "</b>. " +
       '<a data-act="otp:back" style="color:var(--teal);cursor:pointer;font-weight:700;">change email</a></p>' +
       '<div class="field">' +
-      '<label class="flabel" for="otpInput">6-digit code</label>' +
-      '<input class="textinput" id="otpInput" type="tel" inputmode="numeric" placeholder="123456" maxlength="6" data-autofocus>' +
+      '<label class="flabel" for="otpInput">Verification code</label>' +
+      '<input class="textinput" id="otpInput" type="tel" inputmode="numeric" autocomplete="one-time-code" placeholder="Code from your email" maxlength="8" data-autofocus>' +
       "</div>" + err +
       '<button class="btn btn-amber" data-act="otp:verify"' + (otpUI.verifying ? " disabled" : "") + ">" +
       (otpUI.verifying ? "Verifying…" : verifyLabel + arrow) + "</button>" +
